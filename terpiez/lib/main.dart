@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:terpiez/thirdtab.dart';
-import 'secondtab.dart';
-import 'firstTab.dart';
+import 'package:provider/provider.dart';
+import 'Thirdtab.dart';
+import 'SecondTab.dart';
+import 'FirstTab.dart';
+import 'AppState.dart';
+
 
 void main() {
-  runApp(const MyApp());
+  runApp(ChangeNotifierProvider<AppState>(
+    create: (context) => AppState(), child: const MyApp()
+  ));
 }
 
 class MyApp extends StatelessWidget {
@@ -15,31 +20,15 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Terpiez',
       theme: ThemeData(
-        // colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.red),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'terpiez'),
+      home: const Home()
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({Key? key, required this.title}) : super(key: key);
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-  }
+class Home extends StatelessWidget {
+  const Home({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -60,14 +49,11 @@ class _MyHomePageState extends State<MyHomePage> {
             ],
           ),
         ),
-        body: const TabBarView(
-          children: [
-            FirstTab(),
-            SecondTab(),
-            ThirdTab(),
-          ],
+        body:  const TabBarView(
+          children: [FirstTab(), SecondTab(), ThirdTab(),],
         ),
       ),
     );
   }
+
 }
