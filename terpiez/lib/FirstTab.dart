@@ -31,9 +31,9 @@ class FirstTab extends StatelessWidget {
                           ],
                         ),
                         SizedBox(
-                          height: 500,
+                          height: 400,
                           child: Center(
-                            child: Text('User: ${value.appdata.id}', style: const TextStyle(fontSize: 16),),
+                            child: Text('User: ${value.appdata.id}', style: const TextStyle(fontSize: 12),),
                           ),
                         )
                     ]
@@ -57,7 +57,7 @@ class FirstTab extends StatelessWidget {
                                 Text('Terpiez Found: ${value.appdata.terpiez}', style: const TextStyle(fontSize: 18)),
                                 Text('Days Active: ${now.difference(value.appdata.initialDate).inDays}', style: const TextStyle(fontSize: 18)),
                             SizedBox(
-                              height: 150,
+                              height: 100,
                               child: Center(
                                 child: Text('User: ${value.appdata.id}', style: const TextStyle(fontSize: 18),),
                               ),
