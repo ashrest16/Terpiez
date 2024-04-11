@@ -16,4 +16,14 @@ class AppState extends ChangeNotifier {
     initialDate: DateTime.now()
   );
 
+  int get terpiez => appdata.terpiez;
+  String get id => appdata.id;
+  DateTime get initialDate => appdata.initialDate;
+
+  void updateTerpiez() {
+    appdata.terpiez += 1;
+    notifyListeners(); // Notify listeners that the state has changed
+  }
+
+
 }

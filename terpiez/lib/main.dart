@@ -1,28 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'Thirdtab.dart';
-import 'SecondTab.dart';
-import 'FirstTab.dart';
-import 'AppState.dart';
+import 'package:terpiez/user_data.dart';
+import 'third_tab.dart';
+import 'second_tab.dart';
+import 'first_tab.dart';
+import 'app_state.dart';
 
 
 void main() {
-  runApp(ChangeNotifierProvider<AppState>(
-    create: (context) => AppState(), child: const MyApp()
-  ));
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key});
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Terpiez',
-      theme: ThemeData(
-        useMaterial3: true,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>(
+        create: (context) => AppState(),
+    ),
+        ChangeNotifierProvider<TerpiezState>(
+        create: (context) => TerpiezState(),
+    )
+      ],
+      child: MaterialApp(
+        title: 'Terpiez',
+        theme: ThemeData(
+          useMaterial3: true,
+        ),
+        home: const Home()
       ),
-      home: const Home()
     );
   }
 }
@@ -32,13 +41,15 @@ class Home extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     return DefaultTabController(
       length: 3,
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.red,
           foregroundColor: Colors.white,
-          title: const Text('Terpiez'),
+          title: const Text('Terpiez', style: TextStyle(fontSize: 30),),
+          toolbarHeight: isLandscape ? 40 : 60,
           bottom: const TabBar(
             labelColor: Colors.white,
             unselectedLabelColor: Colors.grey,
