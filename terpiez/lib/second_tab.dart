@@ -1,10 +1,7 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:terpiez/app_state.dart';
 import 'package:provider/provider.dart';
-
-import 'package:terpiez/user_data.dart';
 
 class SecondTab extends StatefulWidget {
   const SecondTab({super.key});
@@ -16,11 +13,10 @@ class SecondTab extends StatefulWidget {
 class _SecondTabState extends State<SecondTab> {
   @override
   Widget build(BuildContext context) {
-    final terpProvider = Provider.of<TerpiezState>(context);
-    final appProvider = Provider.of<AppState>(context);
-    final terp = terpProvider.terps;
-    final closestTerp = terpProvider.closestDistance;
-    final position = terpProvider.cameraPosition;
+    final appProvider = Provider.of<AppState>(context,listen: true);
+    final closestDistance = appProvider.closestDistance;
+    final closestTerp = appProvider.closestTerp;
+    final position = appProvider.cameraPosition;
     return SafeArea(
       child: OrientationBuilder(
         builder: (context, orientation) {
@@ -39,9 +35,9 @@ class _SecondTabState extends State<SecondTab> {
                         myLocationEnabled: true,
                         zoomControlsEnabled: false,
                         onMapCreated: (GoogleMapController controller) {
-                          terpProvider.setMapController(controller);
+                          appProvider.setMapController(controller);
                         },
-                        markers: terp,
+                        markers: {closestTerp},
                       ),
                     ),
                   ),
@@ -52,14 +48,14 @@ class _SecondTabState extends State<SecondTab> {
                         style: TextStyle(fontSize: 18),
                       ),
                       Text(
-                        "${closestTerp.toStringAsFixed(2)} meters",
+                        "${closestDistance.toStringAsFixed(2)} meters",
                         style: const TextStyle(fontSize: 18),
                       ),
                     ],
                   ),
                   ElevatedButton(
-                      onPressed: (closestTerp > 10.00) ? null :
-                      () => appProvider.updateTerpiez(),
+                      onPressed: (closestDistance > 10.00) ? null :
+                          () => appProvider.addToTerpCaught(closestTerp.markerId,position.target),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                       ),
@@ -86,8 +82,21 @@ class _SecondTabState extends State<SecondTab> {
                     ),
                   ),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
+                      SizedBox(
+                        height: 160,
+                        width: 450,
+                        child: GoogleMap(
+                          initialCameraPosition: position,
+                          myLocationEnabled: true,
+                          zoomControlsEnabled: false,
+                          onMapCreated: (GoogleMapController controller) {
+                            appProvider.setMapController(controller);
+                          },
+                          markers: {closestTerp},
+                        ),
+                      ),
                       Column(
                         children: [
                           const Text(
@@ -95,12 +104,12 @@ class _SecondTabState extends State<SecondTab> {
                             style: TextStyle(fontSize: 16),
                           ),
                           Text(
-                            "${closestTerp.toStringAsFixed(2)} meters",
+                            "${closestDistance.toStringAsFixed(2)} meters",
                             style: const TextStyle(fontSize: 16),
                           ),
                           ElevatedButton(
-                              onPressed: (closestTerp > 10.00) ? null :
-                                  () => appProvider.updateTerpiez(),
+                              onPressed: (closestDistance > 10.00) ? null :
+                                  () => appProvider.addToTerpCaught(closestTerp.markerId,position.target),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.blue,
                               ),
@@ -112,21 +121,9 @@ class _SecondTabState extends State<SecondTab> {
                                 ),
                               )
                           ),
+
                         ],
-                      ),
-                      SizedBox(
-                        height: 190,
-                        width: 500,
-                        child: GoogleMap(
-                          initialCameraPosition: position,
-                          myLocationEnabled: true,
-                          zoomControlsEnabled: false,
-                          onMapCreated: (GoogleMapController controller) {
-                            terpProvider.setMapController(controller);
-                          },
-                          markers: terp,
-                        ),
-                      ),
+                      )
                     ],
                   ),
                 ],

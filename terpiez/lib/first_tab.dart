@@ -13,7 +13,7 @@ class FirstTab extends StatelessWidget {
     final id = provider.id;
     final initialDate = provider.initialDate;
     final terpiez = provider.terpiez;
-    final difference = now.difference(initialDate).inDays;
+    final difference = now.difference(DateTime.fromMillisecondsSinceEpoch(initialDate)).inDays;
     return SafeArea(
       child: OrientationBuilder(
         builder: (context,orientation) {

@@ -1,6 +1,11 @@
+import 'dart:convert';
 import 'dart:math';
 import 'dart:ui';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:terpiez/terpiez_class.dart';
 
+import 'app_state.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_shaders/flutter_shaders.dart';
 
@@ -9,61 +14,183 @@ class ThirdTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = ['Bug', 'Plane'];
-    final icons = [Icons.bug_report_rounded, Icons.airplanemode_active];
+    final appProvider = Provider.of<AppState>(context,listen: true);
+    final catches = appProvider.terpiezCaught;
+    final Set<String> addedItemNames = {};
     return ListView.builder(
-      itemCount: 2,
+      itemCount: catches.length,
       itemBuilder: (context, index) {
-        String itemTitle = items[index];
-        IconData itemIcon = icons[index];
-        return ListTile(
-          title: Text(items[index], style: const TextStyle(fontSize: 40),),
-          leading: Hero(
-              tag: itemTitle,
-              child: Icon(icons[index],size: 45,)),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => OtherView(itemIcon: itemIcon, itemTitle: itemTitle),
-              ),
-            );
-          },
-        );
-      },
+        String itemTitle = catches[index].name;
+        if (addedItemNames.contains(itemTitle)) {
+          // If duplicate, return an empty container
+          return Container();
+        } else {
+          return ListTile(
+            title: Text(itemTitle, style: const TextStyle(fontSize: 20),),
+            leading: Hero(
+                tag: itemTitle,
+                child: Image.memory(base64Decode(catches[index].thumbnail))
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => OtherView(elem: catches[index]),
+                ),
+              );
+            },
+          );
+        }
+      }
     );
   }
-}
+  }
+
 
 class OtherView extends StatelessWidget {
-  final IconData itemIcon;
-  final String itemTitle;
+  final Terpiez elem;
 
-  const OtherView({super.key, required this.itemIcon, required this.itemTitle});
+  const OtherView({super.key, required this.elem});
 
   @override
   Widget build(BuildContext context) {
-
+    final String itemIcon = elem.largeImage;
+    final String itemTitle = elem.name;
+    final Map<String, dynamic> stats = elem.stats;
+    final CameraPosition position = elem.location;
     return Scaffold(
-      appBar: AppBar(title: Text(itemTitle),
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) =>
-           ShaderWidget(
-             child: Center(
-              child: Column(
-                children: [
-                  Hero(
-                      tag: itemTitle,
-                      child: Icon(itemIcon, size: 0.7 * constraints.biggest.shortestSide)),
-                  Text(itemTitle, style: const TextStyle(fontSize: 48),),
-             
-                ],
-              ),
-                       ),
-           ),
-    ),
-    );
+        appBar: AppBar(
+          title: Text(itemTitle),
+        ),
+        body: SafeArea(child: OrientationBuilder(
+          builder: (context, orientation) {
+            if (orientation == Orientation.portrait) {
+              return LayoutBuilder(
+                builder: (context, constraints) => ShaderWidget(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Hero(
+                              tag: itemTitle,
+                              child: Container(
+                                width: 0.7 * constraints.biggest.shortestSide,
+                                child: Image.memory(base64Decode(itemIcon)),
+                              )),
+                          Text(
+                            itemTitle,
+                            style: const TextStyle(
+                                fontSize: 28, color: Colors.white),
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              SizedBox(
+                                height: 100,
+                                width: 230,
+                                child: GoogleMap(
+                                  initialCameraPosition: position,
+                                  zoomControlsEnabled: false,
+                                  markers: {
+                                    Marker(
+                                        markerId: MarkerId(itemTitle),
+                                        position: position.target)
+                                  },
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: stats.entries
+                                    .map((entry) => Text(
+                                          '${entry.key}: ${entry.value.toString()}',
+                                          style: const TextStyle(
+                                              fontSize: 16,
+                                              color: Colors.white),
+                                        ))
+                                    .toList(),
+                              )
+                            ],
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              elem.description,
+                              style: const TextStyle(
+                                  fontSize: 14, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            } else {
+              return LayoutBuilder(
+                  builder: (context,constraints) =>
+                  ShaderWidget(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Center(
+                      child: Row(
+                        children: [
+                          Hero(
+                              tag: itemTitle,
+                              child: Container(
+                                width: 0.7 * constraints.biggest.shortestSide,
+                                child: Image.memory(base64Decode(itemIcon)),
+                              )),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              children: [
+                                SizedBox(
+                                  width: 150,
+                                  height: 150,
+                                  child:
+                                    GoogleMap(
+                                      initialCameraPosition: position,
+                                      zoomControlsEnabled: false,
+                                      markers: {
+                                        Marker(
+                                          markerId: MarkerId(itemTitle),
+                                          position: position.target
+                                        )
+                                      },
+                                    ),
+                                ),
+                                Column(
+                                  children:
+                                    stats.entries
+                                        .map((entry) => Text(
+                                      '${entry.key}: ${entry.value.toString()}',
+                                      style: const TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.white),
+                                    )).toList()
+                                  ,
+                                )
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: SizedBox(
+                              width: 300,
+                              child: Text(elem.description,
+                                style: const TextStyle(
+                                    fontSize: 14,color: Colors.white
+                                ),),
+                            ),
+                          )
+                        ],
+                      ),
+                    ),
+                  )));
+            }
+          },
+        )));
   }
 }
 
