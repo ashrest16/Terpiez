@@ -1,15 +1,15 @@
-import 'package:uuid/uuid.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:redis/redis.dart';
+import 'package:uuid/uuid.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:redis/redis.dart';
+
 import 'terpiez_class.dart';
-import 'credentials.dart';
 
 class AppData {
   int count;
@@ -21,8 +21,10 @@ class AppData {
 
 class AppState extends ChangeNotifier {
   Set<Marker> terps = {};
-  late Marker _closestTerp;
-  Map<String,dynamic> terpCaught = {};
+  Marker _closestTerp = const Marker(
+      markerId: MarkerId("Dummy"),
+      position: LatLng(0, 0));
+  Map<String, dynamic> terpCaught = {};
   List<Terpiez> terpiezCaught = [];
 
   LatLng _currentPosition = const LatLng(0, 0); // Default value
@@ -30,17 +32,17 @@ class AppState extends ChangeNotifier {
   StreamSubscription<Position>? _locationSubscription;
   GoogleMapController? _mapController;
   late CameraPosition _cameraPosition;
-
+  final storage = const FlutterSecureStorage();
   late Command command;
-  Map<String,Map<String,dynamic>> toDatabase = {};
+  Map<String, Map<String, dynamic>> toDatabase = {};
 
   String? username;
   String? password;
-  AppData appdata = AppData(count: 0, id: Uuid().v4(), initialDate: DateTime.now().millisecondsSinceEpoch);
-  AppState(){
+  AppData appdata = AppData(
+      count: 0, id: Uuid().v4(), initialDate: DateTime.now().millisecondsSinceEpoch);
+
+  AppState() {
     _setState();
-    _updateLocation();
-    _cameraPosition = CameraPosition(target: _currentPosition, zoom: 20);
   }
 
   @override
@@ -50,20 +52,26 @@ class AppState extends ChangeNotifier {
     super.dispose();
   }
 
-  Future<void> _setState()async {
+  Future<void> _setState() async {
     final prefs = await SharedPreferences.getInstance();
     String _id = prefs.getString('id') ?? const Uuid().v4();
     int _initialDate = prefs.getInt('initialDate') ?? DateTime.now().millisecondsSinceEpoch;
     await prefs.setString('id', _id);
     await prefs.setInt('initialDate', _initialDate);
 
-    const storage = FlutterSecureStorage();
-    await storage.write(key: 'dbUsername', value: 'ashrest');
-    await storage.write(key: 'dbPassword', value: 'e45c09a18401401a8431a75a271e8260');
     username = await storage.read(key: 'dbUsername');
     password = await storage.read(key: 'dbPassword');
     appdata.id = _id;
     appdata.initialDate = _initialDate;
+
+    if (username != null && password != null) {
+      await _initializeRedisConnection();
+    }
+    _updateLocation();
+    _cameraPosition = CameraPosition(target: _currentPosition, zoom: 20);
+  }
+
+  Future<void> _initializeRedisConnection() async {
     final conn = RedisConnection();
     command = await conn.connect('cmsc436-0101-redis.cs.umd.edu', 6380);
     try {
@@ -79,7 +87,7 @@ class AppState extends ChangeNotifier {
           terpCaught = data[id];
           appdata.count = terpCaught.length;
           terpCaught.forEach((key, value) {
-            loadTerpiez(key, LatLng(value[0],value[1]));
+            loadTerpiez(key, LatLng(value[0], value[1]));
           });
           print("here");
         } else {
@@ -93,14 +101,21 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadTerpiez(String id, LatLng position) async {
-    dynamic obj = await command.send_object(['JSON.GET','terpiez',".$id"]);
-    obj = jsonDecode(obj);
-    dynamic thumbnail = await command.send_object(['JSON.GET', 'images',obj["thumbnail"]]);
-    dynamic image = await command.send_object(['JSON.GET', 'images',obj["image"]]);
-    terpiezCaught.add(Terpiez.fromJson(obj,jsonDecode(thumbnail),
-        jsonDecode(image),position));
+  Future<void> loadCredentials() async {
+    username = await storage.read(key: 'dbUsername');
+    password = await storage.read(key: 'dbPassword');
+    notifyListeners();
   }
+  bool get needCredentials => username == null || password == null;
+
+  Future<void> loadTerpiez(String id, LatLng position) async {
+    dynamic obj = await command.send_object(['JSON.GET', 'terpiez', ".$id"]);
+    obj = jsonDecode(obj);
+    dynamic thumbnail = await command.send_object(['JSON.GET', 'images', obj["thumbnail"]]);
+    dynamic image = await command.send_object(['JSON.GET', 'images', obj["image"]]);
+    terpiezCaught.add(Terpiez.fromJson(obj, jsonDecode(thumbnail), jsonDecode(image), position));
+  }
+
   double calculateDistance(LatLng markerLocation) {
     var lat1 = _currentPosition.latitude;
     var lon1 = _currentPosition.longitude;
@@ -136,26 +151,24 @@ class AppState extends ChangeNotifier {
   GoogleMapController? get mapController => _mapController;
   Marker get closestTerp => _closestTerp;
 
-  void getTerpiez(json){
+  void getTerpiez(json) {
     for (var x in json) {
       var y = Marker(
           markerId: MarkerId(x['id']),
-          position: LatLng(x['lat'],x['lon'])
-      );
+          position: LatLng(x['lat'], x['lon']));
       terps.add(y);
     }
     closestTerpiez();
   }
 
-
-  Future<void> addToTerpCaught(MarkerId x,position) async {
+  Future<void> addToTerpCaught(MarkerId x, LatLng position) async {
     terpCaught[x.value] = position;
     appdata.count += 1;
     loadTerpiez(x.value, position);
     terps.removeWhere((marker) => marker.markerId == x);
     closestTerpiez();
     print(toDatabase);
-    await command.send_object(['JSON.SET','ashrest',".", jsonEncode(toDatabase)]);
+    await command.send_object(['JSON.SET', 'ashrest', ".", jsonEncode(toDatabase)]);
     notifyListeners();
   }
 

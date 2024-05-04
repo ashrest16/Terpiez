@@ -3,7 +3,6 @@ import 'dart:math';
 import 'dart:ui';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:terpiez/terpiez_class.dart';
-
 import 'app_state.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
@@ -14,8 +13,8 @@ class ThirdTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appProvider = Provider.of<AppState>(context,listen: true);
-    final catches = appProvider.terpiezCaught;
+    final dataProvider = Provider.of<AppState>(context,listen: true);
+    final catches = dataProvider.terpiezCaught;
     final Set<String> addedItemNames = {};
     return ListView.builder(
       itemCount: catches.length,

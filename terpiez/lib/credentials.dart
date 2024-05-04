@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:terpiez/main.dart';
 
-
-class Credentials extends StatefulWidget{
+class Credentials extends StatefulWidget {
   const Credentials({super.key});
 
   @override
@@ -15,12 +15,7 @@ class CredentialsState extends State<Credentials> {
   final FlutterSecureStorage storage = FlutterSecureStorage();
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
-  Widget build(BuildContext context){
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add login details'),
@@ -38,13 +33,19 @@ class CredentialsState extends State<Credentials> {
               decoration: const InputDecoration(labelText: 'Enter Password'),
             ),
             ElevatedButton(
-                child: const Text('Confirm'),
-                onPressed: () async {
-                  await storage.write(key: 'dbUsername', value: _username.text);
-                  await storage.write(key: 'dbPassword', value: _password.text);
-                  Navigator.of(context).pop();
-                }
-                ,)
+              child: const Text('Confirm'),
+              onPressed: () async {
+                await storage.write(key: 'dbUsername', value: _username.text);
+                await storage.write(key: 'dbPassword', value: _password.text);
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MyApp(),
+                  ),
+                      (route) => false,
+                );
+              },
+            ),
           ],
         ),
       ),
