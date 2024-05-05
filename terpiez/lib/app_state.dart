@@ -27,7 +27,7 @@ class AppState extends ChangeNotifier {
   Map<String, dynamic> terpCaught = {};
   List<Terpiez> terpiezCaught = [];
 
-  LatLng _currentPosition = const LatLng(0, 0); // Default value
+  LatLng _currentPosition = const LatLng(38.9891, -76.9365); // Default value
   double _closestDistance = double.infinity;
   StreamSubscription<Position>? _locationSubscription;
   GoogleMapController? _mapController;
@@ -39,10 +39,13 @@ class AppState extends ChangeNotifier {
   String? username;
   String? password;
   AppData appdata = AppData(
-      count: 0, id: Uuid().v4(), initialDate: DateTime.now().millisecondsSinceEpoch);
+      count: 0, id: const Uuid().v4(), initialDate: DateTime.now().millisecondsSinceEpoch);
 
   AppState() {
     _setState();
+    _cameraPosition = CameraPosition(target: _currentPosition, zoom: 20);
+    _updateLocation();
+
   }
 
   @override
@@ -67,8 +70,6 @@ class AppState extends ChangeNotifier {
     if (username != null && password != null) {
       await _initializeRedisConnection();
     }
-    _updateLocation();
-    _cameraPosition = CameraPosition(target: _currentPosition, zoom: 20);
   }
 
   Future<void> _initializeRedisConnection() async {
@@ -182,7 +183,7 @@ class AppState extends ChangeNotifier {
     }
 
     LocationSettings locationSettings = const LocationSettings(
-      accuracy: LocationAccuracy.best,
+      accuracy: LocationAccuracy.high,
       distanceFilter: 5,
     );
 
@@ -191,8 +192,9 @@ class AppState extends ChangeNotifier {
       _cameraPosition = CameraPosition(target: _currentPosition, zoom: 20);
       _mapController?.animateCamera(CameraUpdate.newCameraPosition(_cameraPosition));
       closestTerpiez();
+      notifyListeners();
     });
-    notifyListeners();
+
   }
 
   void setMapController(GoogleMapController controller) {
