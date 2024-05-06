@@ -8,8 +8,9 @@ import 'package:uuid/uuid.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-
 import 'terpiez_class.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class AppData {
   int count;
@@ -25,7 +26,11 @@ class AppState extends ChangeNotifier {
       markerId: MarkerId("Dummy"),
       position: LatLng(0, 0));
   Map<String, dynamic> terpCaught = {};
+  List<Map<String, dynamic>> totalTerpCaught = [];
   List<Terpiez> terpiezCaught = [];
+  bool previousAttempt = true;
+  bool firstAttempt = true;
+  Timer? _timer;
 
   LatLng _currentPosition = const LatLng(38.9891, -76.9365); // Default value
   double _closestDistance = double.infinity;
@@ -35,17 +40,17 @@ class AppState extends ChangeNotifier {
   final storage = const FlutterSecureStorage();
   late Command command;
   Map<String, Map<String, dynamic>> toDatabase = {};
-
   String? username;
   String? password;
+
   AppData appdata = AppData(
-      count: 0, id: const Uuid().v4(), initialDate: DateTime.now().millisecondsSinceEpoch);
+      count: 0, id: "", initialDate: DateTime.now().millisecondsSinceEpoch);
+
 
   AppState() {
     _setState();
     _cameraPosition = CameraPosition(target: _currentPosition, zoom: 20);
     _updateLocation();
-
   }
 
   @override
@@ -66,37 +71,52 @@ class AppState extends ChangeNotifier {
     password = await storage.read(key: 'dbPassword');
     appdata.id = _id;
     appdata.initialDate = _initialDate;
-
+    await loadTerpiezFromFile();
     if (username != null && password != null) {
-      await _initializeRedisConnection();
+      _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
+        _initializeRedisConnection();
+        firstAttempt = false;
+      });
     }
   }
 
   Future<void> _initializeRedisConnection() async {
     final conn = RedisConnection();
-    command = await conn.connect('cmsc436-0101-redis.cs.umd.edu', 6380);
+    command = await conn.connect('cmsc436-0101-redis.cs.umd.edu', 6380).timeout(const Duration(seconds: 1));
     try {
-      await command.send_object(['AUTH', username, password]);
+      await command.send_object(['AUTH', username, password]).timeout(const Duration(seconds: 1));
       print('Connected and authenticated');
+      if (previousAttempt == false && firstAttempt == false) {
+        const SnackBar(
+          content: Text('Connection has been restored'),
+          behavior: SnackBarBehavior.floating,
+        );
+      }
       var result = await command.send_object(['JSON.GET', 'locations']);
       getTerpiez(jsonDecode(result));
-      result = await command.send_object(['JSON.GET', 'ashrest']);
-      result = jsonDecode(result);
-      if (result != null && result.isNotEmpty) {
-        var data = result;
-        if (data[id] != null) {
-          terpCaught = data[id];
-          appdata.count = terpCaught.length;
-          terpCaught.forEach((key, value) {
-            loadTerpiez(key, LatLng(value[0], value[1]));
-          });
-          print("here");
-        } else {
-          terpCaught = {};
-        }
-      }
+      // result = await command.send_object(['JSON.GET', 'ashrest']);
+      // result = jsonDecode(result);
+      // if (result != null && result.isNotEmpty) {
+      //   var data = result;
+      //   if (data[id] != null) {
+      //     terpCaught = data[id];
+      //     appdata.count = terpCaught.length;
+      //     terpCaught.forEach((key, value) {
+      //       loadTerpiezFromDatabase(key, LatLng(value[0], value[1]));
+      //     });
+      //     print("here");
+      //   } else {
+      //     terpCaught = {};
+      //   }
+      // }
       toDatabase[id] = terpCaught;
     } catch (e) {
+      if (previousAttempt == true && firstAttempt == false){
+        const SnackBar(
+            content: Text('Connection has been lost'),
+            behavior: SnackBarBehavior.floating,);
+      }
+      previousAttempt = false;
       print('Error connecting to Redis: $e');
     }
     notifyListeners();
@@ -109,13 +129,37 @@ class AppState extends ChangeNotifier {
   }
   bool get needCredentials => username == null || password == null;
 
-  Future<void> loadTerpiez(String id, LatLng position) async {
+
+  Future<void> loadTerpiezFromDatabase(String id, LatLng position) async {
     dynamic obj = await command.send_object(['JSON.GET', 'terpiez', ".$id"]);
     obj = jsonDecode(obj);
     dynamic thumbnail = await command.send_object(['JSON.GET', 'images', obj["thumbnail"]]);
     dynamic image = await command.send_object(['JSON.GET', 'images', obj["image"]]);
     terpiezCaught.add(Terpiez.fromJson(obj, jsonDecode(thumbnail), jsonDecode(image), position));
   }
+    Future<void> loadTerpiezFromFile() async {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/terpiez_data.txt');
+      bool doesFileExists = await file.exists();
+      if (!doesFileExists) {
+        await file.create();
+      }
+      else {
+        String contents = await file.readAsString();
+        print(contents);
+        terpCaught = jsonDecode(contents);
+      }
+    }
+    Future<void> writeTerpiezToFile() async{
+      final contents = jsonEncode(terpiezCaught.map((element) => element.toJson()).toList());
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/terpiez_data.txt');
+      bool doesFileExists = await file.exists();
+      if (!doesFileExists) {
+        await file.create();
+      }
+      await file.writeAsString(contents);
+    }
 
   double calculateDistance(LatLng markerLocation) {
     var lat1 = _currentPosition.latitude;
@@ -165,10 +209,9 @@ class AppState extends ChangeNotifier {
   Future<void> addToTerpCaught(MarkerId x, LatLng position) async {
     terpCaught[x.value] = position;
     appdata.count += 1;
-    loadTerpiez(x.value, position);
     terps.removeWhere((marker) => marker.markerId == x);
     closestTerpiez();
-    print(toDatabase);
+    await loadTerpiezFromDatabase(x.value, position);
     await command.send_object(['JSON.SET', 'ashrest', ".", jsonEncode(toDatabase)]);
     notifyListeners();
   }

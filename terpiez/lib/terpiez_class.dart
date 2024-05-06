@@ -16,6 +16,19 @@ class Terpiez{
     required this.description,
     required this.location
 });
+  Map<String, dynamic> toJson() {
+    return {
+      "name": name,
+      "stats": stats,
+      "largeImage": largeImage,
+      "thumbnail": thumbnail,
+      "description": description,
+      "location": {
+        "lat": location.target.latitude,
+        "lon": location.target.longitude,
+      }
+    };
+  }
   factory Terpiez.fromJson(Map<String, dynamic> json, dynamic thumbnail,dynamic image,LatLng position) {
     return Terpiez(
       name: json["name"],

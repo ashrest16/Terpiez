@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:terpiez/app_state.dart';
 import 'package:provider/provider.dart';
+import 'package:terpiez/shake.dart';
 
 class SecondTab extends StatefulWidget {
   const SecondTab({super.key});
@@ -13,10 +16,18 @@ class SecondTab extends StatefulWidget {
 class _SecondTabState extends State<SecondTab> {
   @override
   Widget build(BuildContext context) {
-    final appProvider = Provider.of<AppState>(context,listen: true);
+    final appProvider = Provider.of<AppState>(context, listen: true);
+    final shakeProvider = Provider.of<Shake>(context, listen: true);
     final closestDistance = appProvider.closestDistance;
     final closestTerp = appProvider.closestTerp;
     final position = appProvider.cameraPosition;
+    final textColor = closestDistance <= 10.0 ? Colors.green : Colors.red;
+
+    if (shakeProvider.shake && closestDistance <= 10.0) {
+      print("Catch");
+      Future.microtask(() => _catchTerp(context, appProvider, closestTerp, position));
+    }
+
     return SafeArea(
       child: OrientationBuilder(
         builder: (context, orientation) {
@@ -49,23 +60,9 @@ class _SecondTabState extends State<SecondTab> {
                       ),
                       Text(
                         "${closestDistance.toStringAsFixed(2)} meters",
-                        style: const TextStyle(fontSize: 18),
+                        style: TextStyle(fontSize: 18, color: textColor),
                       ),
                     ],
-                  ),
-                  ElevatedButton(
-                      onPressed: (closestDistance > 10.00) ? null :
-                          () => appProvider.addToTerpCaught(closestTerp.markerId,position.target),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                      ),
-                      child: const Text(
-                        "Catch it!",
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.black,
-                        ),
-                      )
                   ),
                 ],
               ),
@@ -105,23 +102,8 @@ class _SecondTabState extends State<SecondTab> {
                           ),
                           Text(
                             "${closestDistance.toStringAsFixed(2)} meters",
-                            style: const TextStyle(fontSize: 16),
+                            style: TextStyle(fontSize: 16, color: textColor),
                           ),
-                          ElevatedButton(
-                              onPressed: (closestDistance > 10.00) ? null :
-                                  () => appProvider.addToTerpCaught(closestTerp.markerId,position.target),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                              ),
-                              child: const Text(
-                                "Catch it!",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.black,
-                                ),
-                              )
-                          ),
-
                         ],
                       )
                     ],
@@ -133,5 +115,27 @@ class _SecondTabState extends State<SecondTab> {
         },
       ),
     );
+  }
+
+  Future<void> _catchTerp(BuildContext context, AppState appProvider, Marker closestTerp, CameraPosition position) async {
+    await appProvider.addToTerpCaught(closestTerp.markerId, position.target);
+    print(appProvider.terpiezCaught);
+    final terpiezCount = appProvider.terpiezCaught.length;
+    final recentCatch = appProvider.terpiezCaught[terpiezCount - 1];
+    showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+              icon: Image.memory(base64Decode(recentCatch.largeImage)),
+              title: Text(recentCatch.name),
+              content: const Text('You Caught a Terp!!'),
+              actions: [
+                ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('Okay'))
+              ]);
+        });
   }
 }

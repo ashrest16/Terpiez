@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'app_state.dart';
 import 'home.dart';
 import 'credentials.dart';
-
+import 'shake.dart';
 void main() {
   runApp(const MyApp());
 }
@@ -13,8 +13,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<AppState>(
-      create: (context) => AppState(),
+    return MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AppState>
+            (create: (context) => AppState()),
+          ChangeNotifierProvider<Shake>(
+              create: (context) => Shake()),
+        ],
       child: MaterialApp(
         title: 'Terpiez',
         theme: ThemeData(useMaterial3: true),
