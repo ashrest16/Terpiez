@@ -22,16 +22,11 @@ class AppData {
 
 class AppState extends ChangeNotifier {
   Set<Marker> terps = {};
-  Marker _closestTerp = const Marker(
-      markerId: MarkerId("Dummy"),
-      position: LatLng(0, 0));
-  Map<String, dynamic> terpCaught = {};
+  Marker _closestTerp =
+      const Marker(markerId: MarkerId("Dummy"), position: LatLng(0, 0));
+  List<dynamic> terpCaught = [];
   List<Map<String, dynamic>> totalTerpCaught = [];
   List<Terpiez> terpiezCaught = [];
-  bool previousAttempt = true;
-  bool firstAttempt = true;
-  Timer? _timer;
-
   LatLng _currentPosition = const LatLng(38.9891, -76.9365); // Default value
   double _closestDistance = double.infinity;
   StreamSubscription<Position>? _locationSubscription;
@@ -39,18 +34,20 @@ class AppState extends ChangeNotifier {
   late CameraPosition _cameraPosition;
   final storage = const FlutterSecureStorage();
   late Command command;
-  Map<String, Map<String, dynamic>> toDatabase = {};
+  Map<String, List<dynamic>> toDatabase = {};
   String? username;
   String? password;
+  bool previousAttempt = true;
+  bool firstAttempt = true;
+  bool connected = false;
+  String snackbarMessage = "";
+  bool snackbarFlag = false;
 
   AppData appdata = AppData(
       count: 0, id: "", initialDate: DateTime.now().millisecondsSinceEpoch);
 
-
   AppState() {
     _setState();
-    _cameraPosition = CameraPosition(target: _currentPosition, zoom: 20);
-    _updateLocation();
   }
 
   @override
@@ -63,61 +60,59 @@ class AppState extends ChangeNotifier {
   Future<void> _setState() async {
     final prefs = await SharedPreferences.getInstance();
     String _id = prefs.getString('id') ?? const Uuid().v4();
-    int _initialDate = prefs.getInt('initialDate') ?? DateTime.now().millisecondsSinceEpoch;
+    int _initialDate =
+        prefs.getInt('initialDate') ?? DateTime.now().millisecondsSinceEpoch;
     await prefs.setString('id', _id);
     await prefs.setInt('initialDate', _initialDate);
-
     username = await storage.read(key: 'dbUsername');
     password = await storage.read(key: 'dbPassword');
     appdata.id = _id;
     appdata.initialDate = _initialDate;
     await loadTerpiezFromFile();
     if (username != null && password != null) {
-      _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
-        _initializeRedisConnection();
+      Timer.periodic(const Duration(seconds: 10), (timer) async {
+        await _initializeRedisConnection();
         firstAttempt = false;
       });
     }
+    closestTerpiez();
+    _cameraPosition = CameraPosition(target: _currentPosition, zoom: 20);
+    await _updateLocation();
   }
 
   Future<void> _initializeRedisConnection() async {
     final conn = RedisConnection();
-    command = await conn.connect('cmsc436-0101-redis.cs.umd.edu', 6380).timeout(const Duration(seconds: 1));
     try {
-      await command.send_object(['AUTH', username, password]).timeout(const Duration(seconds: 1));
+      command = await conn
+          .connect('cmsc436-0101-redis.cs.umd.edu', 6380)
+          .timeout(const Duration(seconds: 1));
+      await command.send_object(['AUTH', username, password]).timeout(
+          const Duration(seconds: 1));
       print('Connected and authenticated');
+      connected = true;
       if (previousAttempt == false && firstAttempt == false) {
-        const SnackBar(
-          content: Text('Connection has been restored'),
-          behavior: SnackBarBehavior.floating,
-        );
+        snackbarMessage = 'Connection has been restored';
+        snackbarFlag = true;
+        previousAttempt = true;
       }
       var result = await command.send_object(['JSON.GET', 'locations']);
       getTerpiez(jsonDecode(result));
-      // result = await command.send_object(['JSON.GET', 'ashrest']);
-      // result = jsonDecode(result);
-      // if (result != null && result.isNotEmpty) {
-      //   var data = result;
-      //   if (data[id] != null) {
-      //     terpCaught = data[id];
-      //     appdata.count = terpCaught.length;
-      //     terpCaught.forEach((key, value) {
-      //       loadTerpiezFromDatabase(key, LatLng(value[0], value[1]));
-      //     });
-      //     print("here");
-      //   } else {
-      //     terpCaught = {};
-      //   }
-      // }
+      result = await command.send_object(['JSON.GET', 'ashrest']);
+      result = jsonDecode(result);
+      if (result != null && result.isNotEmpty) {
+        var data = result;
+        if (data[id] != null) {
+          terpCaught = data[id];
+        }
+      }
       toDatabase[id] = terpCaught;
     } catch (e) {
-      if (previousAttempt == true && firstAttempt == false){
-        const SnackBar(
-            content: Text('Connection has been lost'),
-            behavior: SnackBarBehavior.floating,);
+      connected = false;
+      if (previousAttempt == true && firstAttempt == false) {
+        snackbarMessage = 'Connection has been lost';
+        snackbarFlag = true;
       }
       previousAttempt = false;
-      print('Error connecting to Redis: $e');
     }
     notifyListeners();
   }
@@ -127,39 +122,58 @@ class AppState extends ChangeNotifier {
     password = await storage.read(key: 'dbPassword');
     notifyListeners();
   }
-  bool get needCredentials => username == null || password == null;
 
+  bool get needCredentials => username == null || password == null;
 
   Future<void> loadTerpiezFromDatabase(String id, LatLng position) async {
     dynamic obj = await command.send_object(['JSON.GET', 'terpiez', ".$id"]);
     obj = jsonDecode(obj);
-    dynamic thumbnail = await command.send_object(['JSON.GET', 'images', obj["thumbnail"]]);
-    dynamic image = await command.send_object(['JSON.GET', 'images', obj["image"]]);
-    terpiezCaught.add(Terpiez.fromJson(obj, jsonDecode(thumbnail), jsonDecode(image), position));
+    dynamic thumbnail =
+        await command.send_object(['JSON.GET', 'images', obj["thumbnail"]]);
+    dynamic image =
+        await command.send_object(['JSON.GET', 'images', obj["image"]]);
+    obj['thumbnail'] = jsonDecode(thumbnail);
+    obj['largeImage'] = jsonDecode(image);
+    obj['location'] = {'lat': position.latitude, 'lon': position.longitude};
+    terpiezCaught.add(Terpiez.fromJson(obj));
   }
-    Future<void> loadTerpiezFromFile() async {
-      final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/terpiez_data.txt');
-      bool doesFileExists = await file.exists();
-      if (!doesFileExists) {
-        await file.create();
-      }
-      else {
-        String contents = await file.readAsString();
-        print(contents);
-        terpCaught = jsonDecode(contents);
+
+  Future<void> loadTerpiezFromFile() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/terpiez_data.json');
+    bool doesFileExists = await file.exists();
+    if (!doesFileExists) {
+      await file.create();
+    } else {
+      String contents = await file.readAsString();
+      if (contents.isEmpty) {
+        terpiezCaught = [];
+      } else {
+        try {
+          dynamic decoded = jsonDecode(contents);
+          for (dynamic element in decoded) {
+            terpiezCaught.add(Terpiez.fromJson(element));
+            appdata.count += 1;
+          }
+        } catch (e) {
+          print("Error decoding JSON: $e");
+          terpiezCaught = [];
+        }
       }
     }
-    Future<void> writeTerpiezToFile() async{
-      final contents = jsonEncode(terpiezCaught.map((element) => element.toJson()).toList());
-      final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/terpiez_data.txt');
-      bool doesFileExists = await file.exists();
-      if (!doesFileExists) {
-        await file.create();
-      }
-      await file.writeAsString(contents);
+  }
+
+  Future<void> writeTerpiezToFile() async {
+    final contents =
+        jsonEncode(terpiezCaught.map((element) => element.toJson()).toList());
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/terpiez_data.json');
+    bool doesFileExists = await file.exists();
+    if (!doesFileExists) {
+      await file.create();
     }
+    await file.writeAsString(contents);
+  }
 
   double calculateDistance(LatLng markerLocation) {
     var lat1 = _currentPosition.latitude;
@@ -175,44 +189,55 @@ class AppState extends ChangeNotifier {
   }
 
   void closestTerpiez() {
-    double closestDistance = double.infinity;
-    for (var marker in terps) {
-      double distance = calculateDistance(marker.position);
-      if (distance < closestDistance && !terpCaught.containsKey(marker.markerId.value)) {
-        closestDistance = distance;
-        _closestTerp = marker;
+    if (connected){
+      double closestDistance = double.infinity;
+      for (var marker in terps) {
+        double distance = calculateDistance(marker.position);
+        if (distance < closestDistance &&
+            !terpCaught.contains(marker.markerId.value)) {
+          closestDistance = distance;
+          _closestTerp = marker;
+        }
       }
+      _closestDistance = closestDistance * 1000;
+      notifyListeners();
     }
-    _closestDistance = closestDistance * 1000;
-    notifyListeners();
   }
 
   int get terpiez => appdata.count;
+
   String get id => appdata.id;
+
   int get initialDate => appdata.initialDate;
+
   double get closestDistance => _closestDistance;
+
   LatLng get currentPosition => _currentPosition;
+
   CameraPosition get cameraPosition => _cameraPosition;
+
   GoogleMapController? get mapController => _mapController;
+
   Marker get closestTerp => _closestTerp;
 
   void getTerpiez(json) {
     for (var x in json) {
       var y = Marker(
-          markerId: MarkerId(x['id']),
-          position: LatLng(x['lat'], x['lon']));
+          markerId: MarkerId(x['id']), position: LatLng(x['lat'], x['lon']));
       terps.add(y);
     }
     closestTerpiez();
   }
 
   Future<void> addToTerpCaught(MarkerId x, LatLng position) async {
-    terpCaught[x.value] = position;
+    terpCaught.add(x.value);
     appdata.count += 1;
     terps.removeWhere((marker) => marker.markerId == x);
     closestTerpiez();
     await loadTerpiezFromDatabase(x.value, position);
-    await command.send_object(['JSON.SET', 'ashrest', ".", jsonEncode(toDatabase)]);
+    await writeTerpiezToFile();
+    await command
+        .send_object(['JSON.SET', 'ashrest', ".", jsonEncode(toDatabase)]);
     notifyListeners();
   }
 
@@ -230,14 +255,16 @@ class AppState extends ChangeNotifier {
       distanceFilter: 5,
     );
 
-    _locationSubscription = Geolocator.getPositionStream(locationSettings: locationSettings).listen((Position position) {
+    _locationSubscription =
+        Geolocator.getPositionStream(locationSettings: locationSettings)
+            .listen((Position position) {
       _currentPosition = LatLng(position.latitude, position.longitude);
       _cameraPosition = CameraPosition(target: _currentPosition, zoom: 20);
-      _mapController?.animateCamera(CameraUpdate.newCameraPosition(_cameraPosition));
+      _mapController
+          ?.animateCamera(CameraUpdate.newCameraPosition(_cameraPosition));
       closestTerpiez();
       notifyListeners();
     });
-
   }
 
   void setMapController(GoogleMapController controller) {

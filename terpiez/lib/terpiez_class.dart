@@ -15,7 +15,7 @@ class Terpiez{
     required this.thumbnail,
     required this.description,
     required this.location
-});
+  });
   Map<String, dynamic> toJson() {
     return {
       "name": name,
@@ -29,16 +29,17 @@ class Terpiez{
       }
     };
   }
-  factory Terpiez.fromJson(Map<String, dynamic> json, dynamic thumbnail,dynamic image,LatLng position) {
+  factory Terpiez.fromJson(Map<String, dynamic> json) {
+    LatLng latLng = LatLng(json["location"]["lat"], json["location"]["lon"]);
+    CameraPosition cameraPosition = CameraPosition(target: latLng, zoom: 20);
+
     return Terpiez(
-      name: json["name"],
-      stats: json["stats"],
-      largeImage: image,
-      thumbnail: thumbnail,
-      description: json["description"],
-      location: CameraPosition(target: position, zoom: 20)
+        name: json["name"],
+        stats: json["stats"],
+        largeImage: json["largeImage"],
+        thumbnail: json["thumbnail"],
+        description: json["description"],
+        location: cameraPosition
     );
   }
 }
-
-

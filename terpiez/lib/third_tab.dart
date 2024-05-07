@@ -24,6 +24,7 @@ class ThirdTab extends StatelessWidget {
           // If duplicate, return an empty container
           return Container();
         } else {
+          addedItemNames.add(itemTitle);
           return ListTile(
             title: Text(itemTitle, style: const TextStyle(fontSize: 20),),
             leading: Hero(

@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:terpiez/app_state.dart';
@@ -22,10 +21,17 @@ class _SecondTabState extends State<SecondTab> {
     final closestTerp = appProvider.closestTerp;
     final position = appProvider.cameraPosition;
     final textColor = closestDistance <= 10.0 ? Colors.green : Colors.red;
+    final message = appProvider.snackbarMessage;
+    final snackbarFlag = appProvider.snackbarFlag;
 
     if (shakeProvider.shake && closestDistance <= 10.0) {
-      print("Catch");
       Future.microtask(() => _catchTerp(context, appProvider, closestTerp, position));
+    }
+    if (snackbarFlag){
+      Future.microtask(() {
+        showSnackBar(context, message);
+        appProvider.snackbarFlag = false;
+      });
     }
 
     return SafeArea(
@@ -34,7 +40,6 @@ class _SecondTabState extends State<SecondTab> {
           if (orientation == Orientation.portrait) {
             return Scaffold(
               body: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text("Terpiez Finder", style: TextStyle(fontSize: 40)),
                   Padding(
@@ -62,9 +67,9 @@ class _SecondTabState extends State<SecondTab> {
                         "${closestDistance.toStringAsFixed(2)} meters",
                         style: TextStyle(fontSize: 18, color: textColor),
                       ),
-                    ],
-                  ),
-                ],
+                    ]
+                ),
+              ]
               ),
             );
           } else {
@@ -117,6 +122,7 @@ class _SecondTabState extends State<SecondTab> {
     );
   }
 
+
   Future<void> _catchTerp(BuildContext context, AppState appProvider, Marker closestTerp, CameraPosition position) async {
     await appProvider.addToTerpCaught(closestTerp.markerId, position.target);
     print(appProvider.terpiezCaught);
@@ -138,4 +144,12 @@ class _SecondTabState extends State<SecondTab> {
               ]);
         });
   }
+  void showSnackBar(BuildContext context, String message){
+    SnackBar snackBar = SnackBar(
+        content: Text(message));
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
 }
+
+
+
