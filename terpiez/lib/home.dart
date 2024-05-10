@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'first_tab.dart';
 import 'second_tab.dart';
 import 'third_tab.dart';
+import 'preference_tab.dart';
 
 class Home extends StatelessWidget {
   const Home({super.key});
@@ -30,6 +31,29 @@ class Home extends StatelessWidget {
         ),
         body:  const TabBarView(
           children: [FirstTab(), SecondTab(), ThirdTab(),],
+        ),
+        drawer: Drawer(
+          child:
+            ListView(
+              children:  [
+                const DrawerHeader(
+                    child: Text(
+                      'Options', style: TextStyle(fontSize: 32),)),
+                const Divider(
+                  color: Colors.grey,
+                ),
+                ListTile(
+                  title: const Text('Preferences', style: TextStyle(fontSize: 20),),
+                  leading: const Icon(Icons.settings),
+                  onTap: (){
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const PreferenceTab()));
+                  },
+                )
+              ],
+            )
         ),
       ),
     );

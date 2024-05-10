@@ -11,6 +11,7 @@ import 'dart:math';
 import 'terpiez_class.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'main.dart';
 
 class AppData {
   int count;
@@ -42,6 +43,9 @@ class AppState extends ChangeNotifier {
   bool connected = false;
   String snackbarMessage = "";
   bool snackbarFlag = false;
+  late bool sound;
+  bool notified = false;
+
 
   AppData appdata = AppData(
       count: 0, id: "", initialDate: DateTime.now().millisecondsSinceEpoch);
@@ -66,6 +70,7 @@ class AppState extends ChangeNotifier {
     await prefs.setInt('initialDate', _initialDate);
     username = await storage.read(key: 'dbUsername');
     password = await storage.read(key: 'dbPassword');
+    sound = prefs.getBool('sound') ?? true;
     appdata.id = _id;
     appdata.initialDate = _initialDate;
     await loadTerpiezFromFile();
@@ -115,6 +120,27 @@ class AppState extends ChangeNotifier {
       previousAttempt = false;
     }
     notifyListeners();
+  }
+
+  Future<void> resetUser(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final storage = FlutterSecureStorage();
+
+    prefs.setString("id", const Uuid().v4());
+    prefs.setInt('initialDate', DateTime.now().millisecondsSinceEpoch);
+    await prefs.setBool("push", false);
+
+    await storage.delete(key: 'dbUsername');
+    await storage.delete(key: 'dbPassword');
+
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/terpiez_data.json');
+    await file.writeAsString("");
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const MyApp()),
+          (Route<dynamic> route) => false,
+    );
   }
 
   Future<void> loadCredentials() async {
@@ -188,7 +214,8 @@ class AppState extends ChangeNotifier {
     return 12742 * asin(sqrt(a));
   }
 
-  void closestTerpiez() {
+  void closestTerpiez() async {
+
     if (connected){
       double closestDistance = double.infinity;
       for (var marker in terps) {
@@ -201,6 +228,14 @@ class AppState extends ChangeNotifier {
       }
       _closestDistance = closestDistance * 1000;
       notifyListeners();
+      SharedPreferences preferences = await SharedPreferences.getInstance();
+      print(_closestDistance);
+      if (_closestDistance <= 20.00){
+        await preferences.setBool("push", true);
+      }
+      if (_closestDistance > 20.00){
+        await preferences.setBool("push", false);
+      }
     }
   }
 
@@ -219,6 +254,17 @@ class AppState extends ChangeNotifier {
   GoogleMapController? get mapController => _mapController;
 
   Marker get closestTerp => _closestTerp;
+
+  bool get Sound => sound;
+
+  void setSound(value) async{
+    if (sound != value) {
+      sound = value;
+      notifyListeners();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool("sound", sound);
+    }
+  }
 
   void getTerpiez(json) {
     for (var x in json) {
