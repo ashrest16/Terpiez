@@ -133,7 +133,9 @@ class _SecondTabState extends State<SecondTab> {
     await appProvider.addToTerpCaught(closestTerp.markerId, position.target);
     final terpiezCount = appProvider.terpiezCaught.length;
     final recentCatch = appProvider.terpiezCaught[terpiezCount - 1];
-    _player.play(_catch,volume: _volume);
+    if (appProvider.sound) {
+      _player.play(_catch, volume: _volume);
+    }
     showDialog(
         context: context,
         builder: (BuildContext context) {

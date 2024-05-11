@@ -14,15 +14,10 @@ import 'dart:io';
 import 'dart:async';
 
 
-final navigatorKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   FlutterLocalNotificationsPlugin p = FlutterLocalNotificationsPlugin();
   final NotificationAppLaunchDetails? notificationAppLaunchDetails = await p.getNotificationAppLaunchDetails();
-  if (notificationAppLaunchDetails?.didNotificationLaunchApp ?? false) {
-    navigatorKey.currentState?.push(
-        MaterialPageRoute(builder: (context) => const Home(index: 1,)));
-  }
   await initializeService();
   runApp(MyApp(notificationAppLaunchDetails: notificationAppLaunchDetails));
 }
@@ -30,10 +25,6 @@ Future<void> main() async {
 const notificationChannelId = 'my_foreground';
 const notificationId = 888;
 
- Future<void> onSelectNotification(NotificationResponse response) async {
-   navigatorKey.currentState?.push(
-       MaterialPageRoute(builder: (context) => const Home(index: 1,)));
- }
 
 Future<void> initializeService() async {
   final service = FlutterBackgroundService();
@@ -60,7 +51,6 @@ Future<void> initializeService() async {
           iOS: DarwinInitializationSettings(),
           android: AndroidInitializationSettings('ic_bg_service_small'),
         ),
-        onDidReceiveNotificationResponse: onSelectNotification,
     );
   }
 
@@ -127,12 +117,12 @@ Future<void> onStart(ServiceInstance service) async {
   });
   SharedPreferences preferences = await SharedPreferences.getInstance();
   // bring to foreground
-  Timer.periodic(const Duration(seconds: 15), (timer) async {
+  Timer.periodic(const Duration(seconds: 5), (timer) async {
     if (service is AndroidServiceInstance) {
       if (await service.isForegroundService()) {
         await preferences.reload();
         double? distance = preferences.getDouble("distance");
-        if (distance! <= 20.00) {
+        if (distance != null && distance <= 20.00) {
           flutterLocalNotificationsPlugin.show(
             notificationId,
             'A Terpiez is near!',
@@ -169,7 +159,6 @@ class MyApp extends StatelessWidget {
               create: (context) => Shake()),
         ],
       child: MaterialApp(
-        navigatorKey: navigatorKey,
         title: 'Terpiez',
         theme: ThemeData(useMaterial3: true),
         home: HomeOrCredentials(notificationAppLaunchDetails: notificationAppLaunchDetails),

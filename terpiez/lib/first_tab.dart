@@ -9,7 +9,7 @@ class FirstTab extends StatelessWidget {
 
   Widget build(BuildContext context) {
     DateTime now = DateTime.now();
-    final provider = Provider.of<AppState>(context);
+    final provider = Provider.of<AppState>(context, listen: true);
     final id = provider.id;
     final initialDate = provider.initialDate;
     final terpiez = provider.terpiez;

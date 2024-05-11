@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'app_state.dart';
 import 'package:provider/provider.dart';
 
+import 'main.dart';
+
 class PreferenceTab extends StatelessWidget{
   const PreferenceTab({super.key});
 
@@ -53,6 +55,7 @@ class BodyLayout extends StatelessWidget{
                              onPressed: ()
                              {
                                appProvider.resetUser(context);
+                               Navigator.of(context).pop();
                              },
                              child: const Text('Yes, really clear'))
                        ],

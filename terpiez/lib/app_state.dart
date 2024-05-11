@@ -11,7 +11,6 @@ import 'dart:math';
 import 'terpiez_class.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import 'main.dart';
 
 class AppData {
   int count;
@@ -123,23 +122,23 @@ class AppState extends ChangeNotifier {
 
   Future<void> resetUser(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
-    final storage = FlutterSecureStorage();
-
-    prefs.setString("id", const Uuid().v4());
+    final newId = const Uuid().v4();
+    prefs.setString("id", newId);
     prefs.setInt('initialDate', DateTime.now().millisecondsSinceEpoch);
     await prefs.setBool("push", false);
-
-    await storage.delete(key: 'dbUsername');
-    await storage.delete(key: 'dbPassword');
 
     final directory = await getApplicationDocumentsDirectory();
     final file = File('${directory.path}/terpiez_data.json');
     await file.writeAsString("");
-
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const MyApp()),
-          (Route<dynamic> route) => false,
-    );
+    appdata.count = 0;
+    terpiezCaught.clear();
+    terps.clear();
+    terpCaught.clear();
+    totalTerpCaught.clear();
+    appdata.id = newId;
+    appdata.initialDate = DateTime.now().millisecondsSinceEpoch;
+    _setState();
+    notifyListeners();
   }
 
   Future<void> loadCredentials() async {
