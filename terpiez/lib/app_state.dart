@@ -93,7 +93,6 @@ class AppState extends ChangeNotifier {
           .timeout(const Duration(seconds: 1));
       await command.send_object(['AUTH', username, password]).timeout(
           const Duration(seconds: 1));
-      print('Connected and authenticated');
       connected = true;
       if (previousAttempt == false && firstAttempt == false) {
         snackbarMessage = 'Connection has been restored';
@@ -229,13 +228,11 @@ class AppState extends ChangeNotifier {
       _closestDistance = closestDistance * 1000;
       notifyListeners();
       SharedPreferences preferences = await SharedPreferences.getInstance();
-      print(_closestDistance);
-      if (_closestDistance <= 20.00){
-        await preferences.setBool("push", true);
-      }
-      if (_closestDistance > 20.00){
-        await preferences.setBool("push", false);
-      }
+      await preferences.setDouble('distance', _closestDistance);
+    }
+    else {
+      SharedPreferences preferences = await SharedPreferences.getInstance();
+      await preferences.remove('distance');
     }
   }
 

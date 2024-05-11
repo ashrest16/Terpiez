@@ -1,7 +1,7 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:provider/provider.dart';
-import 'second_tab.dart';
 import 'app_state.dart';
 import 'home.dart';
 import 'credentials.dart';
@@ -9,30 +9,39 @@ import 'shake.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'dart:ui';
 import 'dart:io';
 import 'dart:async';
 
+
+final navigatorKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FlutterLocalNotificationsPlugin p = FlutterLocalNotificationsPlugin();
+  final NotificationAppLaunchDetails? notificationAppLaunchDetails = await p.getNotificationAppLaunchDetails();
+  if (notificationAppLaunchDetails?.didNotificationLaunchApp ?? false) {
+    navigatorKey.currentState?.push(
+        MaterialPageRoute(builder: (context) => const Home(index: 1,)));
+  }
   await initializeService();
-  runApp(const MyApp());
+  runApp(MyApp(notificationAppLaunchDetails: notificationAppLaunchDetails));
 }
 
 const notificationChannelId = 'my_foreground';
 const notificationId = 888;
 
-Future<void> onSelectNotification(NotificationResponse response) async {
-  if (response.payload == 'Second Tab') {
-
-  }
-}
+ Future<void> onSelectNotification(NotificationResponse response) async {
+   navigatorKey.currentState?.push(
+       MaterialPageRoute(builder: (context) => const Home(index: 1,)));
+ }
 
 Future<void> initializeService() async {
   final service = FlutterBackgroundService();
-
-  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+  SharedPreferences preferences = await SharedPreferences.getInstance();
+  bool sound = preferences.getBool("sound") ?? true;
+  AndroidNotificationChannel channel = AndroidNotificationChannel(
+    playSound: sound,
+    sound: const RawResourceAndroidNotificationSound("notification"),
     notificationChannelId, // id
     'MY FOREGROUND SERVICE', // title
     description:
@@ -51,7 +60,7 @@ Future<void> initializeService() async {
           iOS: DarwinInitializationSettings(),
           android: AndroidInitializationSettings('ic_bg_service_small'),
         ),
-        onDidReceiveNotificationResponse: onSelectNotification
+        onDidReceiveNotificationResponse: onSelectNotification,
     );
   }
 
@@ -99,9 +108,6 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 Future<void> onStart(ServiceInstance service) async {
   // Only available for flutter 3.0.0 and later
   DartPluginRegistrant.ensureInitialized();
-  final double _volume = 1.0;
-  final AudioPlayer _player = AudioPlayer();
-  final AssetSource _closeby = AssetSource('sounds/Closeby.mp3');
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
   FlutterLocalNotificationsPlugin();
@@ -119,18 +125,18 @@ Future<void> onStart(ServiceInstance service) async {
   service.on('stopService').listen((event) {
     service.stopSelf();
   });
-
+  SharedPreferences preferences = await SharedPreferences.getInstance();
   // bring to foreground
   Timer.periodic(const Duration(seconds: 15), (timer) async {
     if (service is AndroidServiceInstance) {
       if (await service.isForegroundService()) {
-        SharedPreferences preferences = await SharedPreferences.getInstance();
-        bool notification =  preferences.getBool("push") ?? false;
-        if (notification) {
+        await preferences.reload();
+        double? distance = preferences.getDouble("distance");
+        if (distance! <= 20.00) {
           flutterLocalNotificationsPlugin.show(
             notificationId,
-            'Terpiez',
-            'There is a Terpiez close to you.',
+            'A Terpiez is near!',
+            'Its ${distance.toStringAsFixed(1)}m away! Catch it before it escapes.',
             payload: 'Second Tab',
             const NotificationDetails(
               android: AndroidNotificationDetails(
@@ -150,7 +156,8 @@ Future<void> onStart(ServiceInstance service) async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final NotificationAppLaunchDetails? notificationAppLaunchDetails;
+  const MyApp({Key? key, this.notificationAppLaunchDetails}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -165,15 +172,27 @@ class MyApp extends StatelessWidget {
         navigatorKey: navigatorKey,
         title: 'Terpiez',
         theme: ThemeData(useMaterial3: true),
-        home: const HomeOrCredentials(),
+        home: HomeOrCredentials(notificationAppLaunchDetails: notificationAppLaunchDetails),
       ),
     );
   }
 }
 
-class HomeOrCredentials extends StatelessWidget {
-  const HomeOrCredentials({super.key});
+class HomeOrCredentials extends StatefulWidget {
 
+  final NotificationAppLaunchDetails? notificationAppLaunchDetails;
+  const HomeOrCredentials({Key? key, this.notificationAppLaunchDetails}) : super(key: key);
+
+
+  bool get didNotificationLaunchApp =>
+      notificationAppLaunchDetails?.didNotificationLaunchApp ?? false;
+
+  int get _index => didNotificationLaunchApp ? 1 : 0;
+  @override
+  State<HomeOrCredentials> createState() => _HomeOrCredentialsState();
+}
+
+class _HomeOrCredentialsState extends State<HomeOrCredentials> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
@@ -184,7 +203,7 @@ class HomeOrCredentials extends StatelessWidget {
         }
         return Provider.of<AppState>(context).needCredentials
             ? const Credentials()
-            : const Home();
+            : Home(index: widget._index);
       },
     );
   }

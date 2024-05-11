@@ -16,7 +16,7 @@ class SecondTab extends StatefulWidget {
 class _SecondTabState extends State<SecondTab> {
   final double _volume = 1.0;
   final AudioPlayer _player = AudioPlayer();
-  final AssetSource _catch = AssetSource('sounds/catch.mp3');
+  final AssetSource _catch = AssetSource('sounds/caught.mp3');
 
 
   @override
@@ -30,7 +30,6 @@ class _SecondTabState extends State<SecondTab> {
     final message = appProvider.snackbarMessage;
     final snackbarFlag = appProvider.snackbarFlag;
 
-
     if (shakeProvider.shake && closestDistance <= 10.0) {
       Future.microtask(() => _catchTerp(context, appProvider, closestTerp, position));
     }
@@ -40,7 +39,6 @@ class _SecondTabState extends State<SecondTab> {
         appProvider.snackbarFlag = false;
       });
     }
-
 
     return SafeArea(
       child: OrientationBuilder(
@@ -157,14 +155,6 @@ class _SecondTabState extends State<SecondTab> {
         content: Text(message));
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
-
-  void closeSnackBar(BuildContext context){
-    SnackBar snackBar = const SnackBar(
-      content: Text('A Terpiez is close'));
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
-  }
-
-
 }
 
 

@@ -5,13 +5,16 @@ import 'third_tab.dart';
 import 'preference_tab.dart';
 
 class Home extends StatelessWidget {
-  const Home({super.key});
+  const Home({super.key, required this.index});
+
+  final int index;
 
   @override
   Widget build(BuildContext context) {
     bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     return DefaultTabController(
+      initialIndex: index,
       length: 3,
       child: Scaffold(
         appBar: AppBar(
